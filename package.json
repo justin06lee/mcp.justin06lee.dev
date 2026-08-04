@@ -4,18 +4,19 @@
   "private": true,
   "description": "MCP server for controlling justin06lee.dev without touching code",
   "type": "module",
-  "bin": {
-    "justin06lee-mcp": "./dist/index.js"
-  },
   "files": [
-    "dist"
+    "dist",
+    "install.sh"
   ],
   "scripts": {
     "dev": "bun run src/index.ts",
-    "build": "bun build src/index.ts --target=node --outdir=dist --minify",
-    "start": "node dist/index.js",
+    "build": "bun build src/index.ts --compile --minify --outfile dist/justin06lee-mcp",
+    "build:linux": "bun build src/index.ts --compile --minify --target=bun-linux-x64 --outfile dist/justin06lee-mcp-linux-x64",
+    "bundle": "bun build src/index.ts --target=node --outdir=dist --minify",
+    "doctor": "bun run src/index.ts --doctor",
+    "install:otto": "./install.sh",
     "typecheck": "tsc --noEmit",
-    "smoke": "bun run build && bun run scripts/smoke.ts",
+    "smoke": "bun run bundle && bun run scripts/smoke.ts",
     "check": "bun run typecheck && bun run smoke"
   },
   "dependencies": {

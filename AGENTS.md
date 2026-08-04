@@ -42,6 +42,22 @@ as a 400.
   keeps `all` / `id` / `track` mutually exclusive so a missing argument can't
   wipe out every running timer.
 
+## deployment shape
+
+This is **not a daemon**. It's an MCP stdio server: the agent (Otto → Claude
+Code) spawns it as a child process per session and talks over stdin/stdout,
+exactly like `otto-memory`. No port, no service unit, nothing to keep alive.
+Don't add a supervisor, a PID file, or a listening socket.
+
+`install.sh` builds a self-contained binary (via `bun build --compile`, so the
+target needs neither Node nor Bun) into `~/.local/bin` and merges one entry into
+`~/.config/otto/mcp.json`.
+
+**Otto's `setup.sh` truncates and rewrites `mcp.json`** — `config = {"mcpServers":
+{}}` then `>` — so it drops this entry every time it runs. `install.sh` is
+idempotent to make recovering from that a one-liner. Fixing it properly means
+teaching Otto's setup.sh to preserve unknown servers.
+
 ## checks
 
 ```bash

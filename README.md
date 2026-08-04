@@ -21,36 +21,58 @@ is tempting. This server deliberately doesn't:
 The server holds one credential — `ADMIN_KEY` — and exchanges it for a session
 cookie, because the site has no header-token auth path.
 
-## setup
+## it is not a daemon
+
+Worth being explicit, because it's the thing most people get wrong: an MCP
+stdio server is **not** a long-running service. The agent spawns it as a child
+process and talks over stdin/stdout, the same way Otto already spawns
+`otto-memory`. There is nothing to keep alive, no port, no tmux window, no
+systemd unit.
+
+The unit of deployment is a **binary in `~/.local/bin`** plus one entry in
+`~/.config/otto/mcp.json`. That is the whole install.
+
+Running it by hand just makes it sit there waiting for JSON-RPC on stdin. To
+check it actually works, use `--doctor`.
+
+## install
 
 ```bash
-bun install
-cp .env.example .env    # set ADMIN_KEY
-bun run check           # typecheck + smoke test
-bun run build
+./install.sh
 ```
 
-### wire it into Claude Code
+Idempotent — re-run to rebuild, rotate the key, or repair the registration. It
+builds a self-contained binary into `~/.local/bin/justin06lee-mcp`, verifies the
+credentials against the live site, and only then merges itself into Otto's
+`mcp.json` (leaving the other servers alone, `0600`).
+
+Then restart Otto:
+
+```bash
+systemctl --user restart otto              # Arch
+launchctl kickstart -k gui/$UID/com.otto.bot   # macOS
+```
+
+> **Otto's `setup.sh` rewrites `mcp.json` from scratch** and will drop this
+> entry. If you re-run it, re-run `./install.sh` afterwards.
+
+### checking it works
+
+```bash
+justin06lee-mcp --doctor
+```
+
+Hits the live site and reports auth, items, config, categories, and timers.
+Non-zero exit on failure, so it works in a health check.
+
+### other agents
+
+Nothing here is Otto-specific — it's a standard MCP stdio server:
 
 ```bash
 claude mcp add justin06lee \
-  --env ADMIN_KEY=... \
-  --env SITE_URL=https://justin06lee.dev \
-  -- node /absolute/path/to/dist/index.js
-```
-
-Or in `.mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "justin06lee": {
-      "command": "node",
-      "args": ["/absolute/path/to/dist/index.js"],
-      "env": { "ADMIN_KEY": "...", "SITE_URL": "https://justin06lee.dev" }
-    }
-  }
-}
+  --env ADMIN_KEY=... --env SITE_URL=https://justin06lee.dev \
+  -- ~/.local/bin/justin06lee-mcp
 ```
 
 ## configuration
@@ -65,19 +87,32 @@ a systemd unit, or a container.
 | `ADMIN_KEY` | *(required)* | Same key the target site is deployed with. Grants full admin. |
 | `REQUEST_TIMEOUT_MS` | `15000` | Raise if the site cold-starts slowly. |
 
-## deploying to the home server
+## deploying to the Arch box
 
-The build is one file with no runtime dependencies beyond Node.
+The binary embeds its own runtime, so the target machine needs **neither Node
+nor Bun** — nothing to install, nothing to keep in sync.
 
-**Docker** — stdio needs `-i`, so stdin stays attached:
+Build here, copy across:
 
 ```bash
-docker build -t justin06lee-mcp .
-docker run -i --rm --env-file .env justin06lee-mcp
+./install.sh --target linux-x64     # → dist/justin06lee-mcp-linux-x64
+scp dist/justin06lee-mcp-linux-x64 arch:~/.local/bin/justin06lee-mcp
 ```
 
-**Plain Node** — copy `dist/index.js` across and run it with the env set. No
-`node_modules`, no source, no install step.
+Then on the Arch box:
+
+```bash
+chmod +x ~/.local/bin/justin06lee-mcp
+ADMIN_KEY=... justin06lee-mcp --doctor      # confirm before registering
+./install.sh --no-register                  # or register by hand in mcp.json
+systemctl --user restart otto
+```
+
+Or just run `./install.sh` there if the repo is checked out and Bun is present.
+
+Cross-compiled output deliberately stays in `dist/` rather than
+`~/.local/bin` — installing a foreign-arch binary over the working one would
+break the local agent.
 
 ## tools
 
@@ -100,8 +135,10 @@ Two places where the tool is friendlier than the raw endpoint:
 ## layout
 
 ```
+install.sh            # build → ~/.local/bin → register with Otto
 src/
-├── index.ts          # stdio entry point
+├── index.ts          # entry: stdio transport, --doctor, --version
+├── doctor.ts         # live connectivity + auth check
 ├── server.ts         # builds the server, registers tools — no transport
 ├── config.ts         # environment parsing
 ├── client.ts         # HTTP client: cookie session, retry, timeouts
@@ -114,8 +151,10 @@ src/
 scripts/smoke.ts      # boots the built server over stdio, asserts the manifest
 ```
 
-`server.ts` binds no transport. Serving this over HTTP from the home server
-later means adding an entry point beside `index.ts` — no tool code changes.
+`server.ts` binds no transport. If a genuinely remote setup is ever wanted —
+the agent on one machine, the server on another — that means adding an entry
+point beside `index.ts` and no tool code changes. Until then, stdio is simpler
+and has no listening port to secure.
 
 ## not covered
 

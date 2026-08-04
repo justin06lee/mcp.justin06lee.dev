@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Secrets — ADMIN_KEY lives here, never in git
+.env
+.env.*
+!.env.example
+
+.DS_Store
+.idea/
+.vscode/

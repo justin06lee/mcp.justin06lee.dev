@@ -16,8 +16,9 @@
     "doctor": "bun run src/index.ts --doctor",
     "install:otto": "./install.sh",
     "typecheck": "tsc --noEmit",
+    "test": "bun test tests",
     "smoke": "bun run bundle && bun run scripts/smoke.ts",
-    "check": "bun run typecheck && bun run smoke"
+    "check": "bun run typecheck && bun run test && bun run smoke"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

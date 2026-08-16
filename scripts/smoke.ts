@@ -32,6 +32,23 @@ const EXPECTED = [
   "create_time_entry",
   "update_time_entry",
   "delete_time_entry",
+  "get_prayer_times",
+  "reverse_geocode",
+  "get_pats",
+  "list_uploads",
+  "upload_image",
+  "delete_upload",
+  "revalidate_articles",
+  "upload_article_image",
+  "truman_stream_status",
+  "truman_set_live",
+  "truman_read_chat",
+  "truman_post_chat",
+  "truman_clear_chat",
+  "truman_revoke_sessions",
+  "truman_delete_episode",
+  "listen_room_status",
+  "listen_set_room",
 ];
 
 const transport = new StdioClientTransport({

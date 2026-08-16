@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { SiteClient } from "../client.ts";
+import type { ApiClient } from "../client.ts";
 import {
   MAX_NAME_LEN,
   MAX_NOTES_LEN,
@@ -22,7 +22,7 @@ const fallback = z.object({
   endTime: hhmm,
 });
 
-export function registerCalendarTools(server: McpServer, client: SiteClient): void {
+export function registerCalendarTools(server: McpServer, client: ApiClient): void {
   /* ── planned tasks ── */
 
   server.registerTool(
@@ -186,5 +186,21 @@ export function registerCalendarTools(server: McpServer, client: SiteClient): vo
       });
       return ok({ id }, "Deleted category.");
     }),
+  );
+
+  /* ── prayer times ── */
+
+  server.registerTool(
+    "get_prayer_times",
+    {
+      title: "Get prayer times for a date",
+      description:
+        "Read the five daily prayer times for a date, computed for the location in " +
+        "get_site_config. Times are HH:MM strings in the site's timezone.",
+      inputSchema: { date: dateString },
+    },
+    guarded(async ({ date }) =>
+      ok(await client.request("/api/calendar/prayer-times", { query: { date } })),
+    ),
   );
 }

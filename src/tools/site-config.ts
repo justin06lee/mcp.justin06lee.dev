@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { SiteClient } from "../client.ts";
+import type { ApiClient } from "../client.ts";
 import { guarded, ok } from "./shared.ts";
 
 type SiteConfig = {
@@ -17,7 +17,7 @@ type SiteConfig = {
   };
 };
 
-export function registerSiteConfigTools(server: McpServer, client: SiteClient): void {
+export function registerSiteConfigTools(server: McpServer, client: ApiClient): void {
   server.registerTool(
     "get_site_config",
     {
@@ -92,5 +92,34 @@ export function registerSiteConfigTools(server: McpServer, client: SiteClient): 
         `Updated: ${sections.join(", ")}. Config now:`,
       );
     }),
+  );
+
+  server.registerTool(
+    "reverse_geocode",
+    {
+      title: "Reverse-geocode coordinates",
+      description:
+        "Turn latitude/longitude into a {city, country} pair via the site's geocoding " +
+        "proxy. Useful before updating prayerLocation in update_site_config.",
+      inputSchema: {
+        lat: z.number().min(-90).max(90),
+        lon: z.number().min(-180).max(180),
+      },
+    },
+    guarded(async ({ lat, lon }) =>
+      ok(await client.request("/api/geocode/reverse", { query: { lat, lon } })),
+    ),
+  );
+
+  server.registerTool(
+    "get_pats",
+    {
+      title: "Get the head-pat count",
+      description:
+        "Read the site's global cat head-pat counter. Read-only: pats are given through " +
+        "the site itself, not through this server.",
+      inputSchema: {},
+    },
+    guarded(async () => ok(await client.request("/api/pats"))),
   );
 }

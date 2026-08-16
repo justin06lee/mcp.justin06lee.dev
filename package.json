@@ -1,6 +1,6 @@
 {
   "name": "@justin06lee/mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "MCP server for controlling justin06lee.dev without touching code",
   "type": "module",
@@ -16,8 +16,9 @@
     "doctor": "bun run src/index.ts --doctor",
     "install:otto": "./install.sh",
     "typecheck": "tsc --noEmit",
+    "test": "bun test tests",
     "smoke": "bun run bundle && bun run scripts/smoke.ts",
-    "check": "bun run typecheck && bun run smoke"
+    "check": "bun run typecheck && bun run test && bun run smoke"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

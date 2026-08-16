@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { SiteClient } from "../client.ts";
+import type { ApiClient } from "../client.ts";
 import {
   MAX_NOTES_LEN,
   MAX_TITLE_LEN,
@@ -24,7 +24,7 @@ const track = z
       "Lanes let several activities run at once.",
   );
 
-export function registerTimerTools(server: McpServer, client: SiteClient): void {
+export function registerTimerTools(server: McpServer, client: ApiClient): void {
   server.registerTool(
     "get_running_timers",
     {
@@ -112,7 +112,8 @@ export function registerTimerTools(server: McpServer, client: SiteClient): void 
       title: "Log a completed time entry",
       description:
         "Record time after the fact, for work that was never timed live. Timestamps are " +
-        "epoch milliseconds; the day it files under is derived from the site's timezone.",
+        "epoch milliseconds; the day it files under is derived from the site's timezone. " +
+        "Backfilled entries always land on the primary lane — the API has no track field here.",
       inputSchema: {
         startAt: epochMs,
         endAt: epochMs,

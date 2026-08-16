@@ -22,12 +22,15 @@ Environment:
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
 
+  // --help and --version print to stdout: nothing has attached the MCP
+  // transport yet, and conventional CLI plumbing (`$(justin06lee-mcp -v)`,
+  // pipes) expects them there. Only the serving path below owns stdout.
   if (args.includes("--help") || args.includes("-h")) {
-    console.error(USAGE);
+    console.log(USAGE);
     return;
   }
   if (args.includes("--version") || args.includes("-v")) {
-    console.error(VERSION);
+    console.log(VERSION);
     return;
   }
   if (args.includes("--doctor")) {

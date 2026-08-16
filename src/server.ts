@@ -5,8 +5,10 @@ import { registerItemTools } from "./tools/items.ts";
 import { registerSiteConfigTools } from "./tools/site-config.ts";
 import { registerCalendarTools } from "./tools/calendar.ts";
 import { registerTimerTools } from "./tools/timers.ts";
+import pkg from "../package.json";
 
-export const VERSION = "0.1.0";
+/** Single source of truth: package.json. The bundle inlines it at build time. */
+export const VERSION: string = pkg.version;
 
 /**
  * Builds the server with every tool registered but no transport attached.

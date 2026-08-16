@@ -14,8 +14,12 @@ not run by hand — there is no daemon and nothing to keep alive.
   justin06lee-mcp --version  print the version
 
 Environment:
-  SITE_URL             deployment to control (default https://justin06lee.dev)
-  ADMIN_KEY            required; same key the site is deployed with
+  SITE_URL             main site to control (default https://justin06lee.dev)
+  ADMIN_KEY            required; same key the main site is deployed with
+  TRUMAN_URL           truman deployment (default https://truman.justin06lee.dev)
+  TRUMAN_OWNER_KEY     optional; enables the truman_* tools
+  LISTEN_URL           listen deployment (default https://listen.justin06lee.dev)
+  LISTEN_OWNER_KEY     optional; enables writes via listen_set_room
   REQUEST_TIMEOUT_MS   per-request timeout (default 15000)
 `;
 

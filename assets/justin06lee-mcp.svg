@@ -1,0 +1,34 @@
+<svg width="660" height="220" viewBox="0 0 660 220" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="justin06lee-mcp">
+  <rect x="1" y="1" width="658" height="218" rx="18" fill="#101418" stroke="#2a3138" stroke-width="2"/>
+
+  <!-- spokes from the hub to each app -->
+  <g stroke="#3d4650" stroke-width="1.5">
+    <path d="M330 96 L150 58"/>
+    <path d="M330 96 L150 134"/>
+    <path d="M330 96 L510 58"/>
+    <path d="M330 96 L510 134"/>
+  </g>
+
+  <!-- app nodes -->
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" fill="#8a949e">
+    <circle cx="150" cy="58" r="5" fill="#5b7a8a"/>
+    <text x="138" y="43" text-anchor="middle">justin06lee.dev</text>
+    <circle cx="150" cy="134" r="5" fill="#6b8a72"/>
+    <text x="138" y="159" text-anchor="middle">hours</text>
+    <circle cx="510" cy="58" r="5" fill="#8a6655"/>
+    <text x="522" y="43" text-anchor="middle">truman</text>
+    <circle cx="510" cy="134" r="5" fill="#5b5b8a"/>
+    <text x="522" y="159" text-anchor="middle">listen</text>
+  </g>
+
+  <!-- the hub: a socket -->
+  <g>
+    <circle cx="330" cy="96" r="26" fill="#161b21" stroke="#4a545e" stroke-width="2"/>
+    <rect x="322" y="86" width="5" height="12" rx="1.5" fill="#c8d0d8"/>
+    <rect x="333" y="86" width="5" height="12" rx="1.5" fill="#c8d0d8"/>
+    <path d="M324 102 h12 v4 a6 6 0 0 1 -12 0 z" fill="#c8d0d8"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="330" y="192" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="24" font-weight="600" fill="#e8edf2">justin06lee-mcp</text>
+</svg>

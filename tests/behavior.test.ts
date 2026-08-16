@@ -36,29 +36,54 @@ const ITEM_ROW = {
 
 const captured: Captured[] = [];
 const auth = { loginCount: 0, valid: new Set<string>() };
+const LISTEN_KEY = "listen-key";
 
 const site = Bun.serve({
   port: 0,
   async fetch(req) {
     const url = new URL(req.url);
     const path = url.pathname;
+    const cookies = req.headers.get("cookie") ?? "";
+    const readBody = () =>
+      ["POST", "PUT", "PATCH", "DELETE"].includes(req.method)
+        ? req.json().catch(() => null)
+        : Promise.resolve(null);
 
+    // listen: public reads, raw-key cookie for writes.
+    if (path === "/api/studio") return Response.json({ owner: true, configured: true });
+    if (path === "/api/room") {
+      if (req.method === "POST") {
+        if (!cookies.includes(`listen_owner=${LISTEN_KEY}`)) {
+          return Response.json({ error: "not the broadcaster" }, { status: 401 });
+        }
+        captured.push({ method: req.method, path, body: await readBody() });
+      }
+      return Response.json({
+        trackId: null,
+        playlistId: null,
+        position: 0,
+        playing: false,
+        live: false,
+        silentFor: -1,
+      });
+    }
+
+    // Login — the main site and truman share the path; truman's body has `name`.
     if (path === "/api/auth" && req.method === "POST") {
+      const body = (await readBody()) as { name?: string } | null;
+      const cookieName = body?.name !== undefined ? "truman_session" : "admin_session";
       auth.loginCount += 1;
       const token = `tok${auth.loginCount}`;
       auth.valid.add(token);
       return new Response("{}", {
-        headers: { "set-cookie": `admin_session=${token}; Path=/; HttpOnly` },
+        headers: { "set-cookie": `${cookieName}=${token}; Path=/; HttpOnly` },
       });
     }
 
-    const token = /admin_session=([^;]+)/.exec(req.headers.get("cookie") ?? "")?.[1];
+    const token = /(?:admin|truman)_session=([^;]+)/.exec(cookies)?.[1];
     if (!token || !auth.valid.has(token)) return new Response("unauthorized", { status: 401 });
 
-    const body = ["POST", "PUT", "PATCH"].includes(req.method)
-      ? await req.json().catch(() => null)
-      : null;
-    captured.push({ method: req.method, path, body });
+    captured.push({ method: req.method, path, body: await readBody() });
 
     if (path === "/api/items" && req.method === "GET") return Response.json([ITEM_ROW]);
     if (path === "/api/calendar/actuals/running") return new Response(null, { status: 204 });
@@ -72,6 +97,10 @@ beforeAll(async () => {
   const server = createServer({
     siteUrl: `http://localhost:${site.port}`,
     adminKey: "test-key",
+    trumanUrl: `http://localhost:${site.port}`,
+    trumanOwnerKey: "truman-key",
+    listenUrl: `http://localhost:${site.port}`,
+    listenOwnerKey: LISTEN_KEY,
     requestTimeoutMs: 5_000,
   });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -189,4 +218,86 @@ test("an expired session heals with exactly one re-login", async () => {
   const res = await call("list_items", {});
   expect(res.error).toBe(false);
   expect(auth.loginCount).toBe(before + 1);
+});
+
+test("truman_revoke_sessions requires the target to be explicit", async () => {
+  for (const args of [{}, { id: "s1", all: true }]) {
+    const res = await call("truman_revoke_sessions", args);
+    expect(res.error).toBe(true);
+    expect(captured.length).toBe(0); // never reached the site
+  }
+
+  await call("truman_revoke_sessions", { id: "s1" });
+  expect(captured.at(-1)?.body).toEqual({ id: "s1" });
+
+  await call("truman_revoke_sessions", { all: true, clear_chat: true });
+  expect(captured.at(-1)?.body).toEqual({ clearChat: true });
+});
+
+test("truman_post_chat rides the truman session cookie", async () => {
+  const res = await call("truman_post_chat", { body: "hello room" });
+  expect(res.error).toBe(false);
+  expect(captured.at(-1)).toMatchObject({ method: "POST", path: "/api/chat", body: { body: "hello room" } });
+});
+
+test("listen_set_room always sends the full four-field replace", async () => {
+  const res = await call("listen_set_room", { playing: true });
+  expect(res.error).toBe(false);
+  expect(captured.at(-1)?.body).toEqual({
+    trackId: null,
+    playlistId: null,
+    position: 0,
+    playing: true,
+  });
+});
+
+test("listen_room_status merges room and studio state", async () => {
+  const res = await call("listen_room_status", {});
+  expect(res.error).toBe(false);
+  expect(JSON.parse(res.text)).toMatchObject({ live: false, broadcastConfigured: true });
+});
+
+test("upload_image demands exactly one source and rejects oversized files", async () => {
+  const neither = await call("upload_image", {});
+  expect(neither.error).toBe(true);
+
+  const both = await call("upload_image", { path: "/tmp/x.png", base64: "aGk=" });
+  expect(both.error).toBe(true);
+
+  const noName = await call("upload_image", { base64: "aGk=" });
+  expect(noName.error).toBe(true);
+  expect(noName.text).toContain("filename");
+
+  expect(captured.length).toBe(0); // none of the rejects hit the site
+});
+
+test("a keyless truman client fails with the env var named", async () => {
+  const server = createServer({
+    siteUrl: `http://localhost:${site.port}`,
+    adminKey: "test-key",
+    trumanUrl: `http://localhost:${site.port}`,
+    trumanOwnerKey: null,
+    listenUrl: `http://localhost:${site.port}`,
+    listenOwnerKey: null,
+    requestTimeoutMs: 5_000,
+  });
+  const [ct, st] = InMemoryTransport.createLinkedPair();
+  const bare = new Client({ name: "keyless-test", version: "0" });
+  await Promise.all([server.connect(st), bare.connect(ct)]);
+
+  const stream = (await bare.callTool({ name: "truman_stream_status", arguments: {} })) as {
+    isError?: boolean;
+    content: { text: string }[];
+  };
+  expect(stream.isError).toBe(true);
+  expect(stream.content[0]?.text).toContain("TRUMAN_OWNER_KEY");
+
+  const room = (await bare.callTool({ name: "listen_set_room", arguments: {} })) as {
+    isError?: boolean;
+    content: { text: string }[];
+  };
+  expect(room.isError).toBe(true);
+  expect(room.content[0]?.text).toContain("LISTEN_OWNER_KEY");
+
+  await bare.close();
 });

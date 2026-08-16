@@ -124,7 +124,10 @@ mkdir -p "$OTTO_CONFIG_DIR"
 [ -f "$MCP_FILE" ] || install -m 600 /dev/null "$MCP_FILE"
 
 MCP_FILE="$MCP_FILE" SERVER_KEY="$SERVER_KEY" BIN_PATH="$BIN_DIR/$BIN_NAME" \
-SITE_URL="$SITE_URL" ADMIN_KEY="$ADMIN_KEY" python3 - <<'PY'
+SITE_URL="$SITE_URL" ADMIN_KEY="$ADMIN_KEY" \
+TRUMAN_URL="${TRUMAN_URL:-}" TRUMAN_OWNER_KEY="${TRUMAN_OWNER_KEY:-}" \
+LISTEN_URL="${LISTEN_URL:-}" LISTEN_OWNER_KEY="${LISTEN_OWNER_KEY:-}" \
+REQUEST_TIMEOUT_MS="${REQUEST_TIMEOUT_MS:-}" python3 - <<'PY'
 import json, os, tempfile
 
 path = os.environ["MCP_FILE"]
@@ -134,12 +137,19 @@ try:
 except (FileNotFoundError, json.JSONDecodeError):
     cfg = {}
 
-cfg.setdefault("mcpServers", {})[os.environ["SERVER_KEY"]] = {
+servers = cfg.setdefault("mcpServers", {})
+# Merge over the existing entry so optional keys registered earlier (truman,
+# listen, timeouts) survive a re-run that doesn't have them in its environment.
+env = servers.get(os.environ["SERVER_KEY"], {}).get("env", {})
+env["SITE_URL"] = os.environ["SITE_URL"]
+env["ADMIN_KEY"] = os.environ["ADMIN_KEY"]
+for key in ("TRUMAN_URL", "TRUMAN_OWNER_KEY", "LISTEN_URL", "LISTEN_OWNER_KEY", "REQUEST_TIMEOUT_MS"):
+    if os.environ.get(key):
+        env[key] = os.environ[key]
+
+servers[os.environ["SERVER_KEY"]] = {
     "command": os.environ["BIN_PATH"],
-    "env": {
-        "SITE_URL": os.environ["SITE_URL"],
-        "ADMIN_KEY": os.environ["ADMIN_KEY"],
-    },
+    "env": env,
 }
 
 # Write via a temp file in the same directory so an interrupted run can't

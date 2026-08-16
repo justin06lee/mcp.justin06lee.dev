@@ -1,5 +1,5 @@
-import { SiteClient } from "./client.ts";
 import { loadConfig } from "./config.ts";
+import { listenClient, siteClient, trumanClient } from "./server.ts";
 
 /**
  * `--doctor` exists because a stdio MCP server is otherwise invisible: it is
@@ -36,32 +36,58 @@ export async function doctor(): Promise<number> {
 
   log(`  ok    config — SITE_URL=${config.siteUrl}, ADMIN_KEY set (${config.adminKey.length} chars)`);
 
-  const client = new SiteClient(config);
+  const site = siteClient(config);
 
   // The first authenticated call performs the login exchange, so a passing
   // read proves reachability, ADMIN_KEY, and the session cookie all at once.
   await step("auth + items", async () => {
-    const items = await client.request<unknown[]>("/api/items");
+    const items = await site.request<unknown[]>("/api/items");
     return `${items.length} portfolio item(s)`;
   });
 
   await step("site config", async () => {
-    const site = await client.request<{ description?: string[] }>("/api/config");
-    return `${site.description?.length ?? 0} bio line(s)`;
+    const siteConfig = await site.request<{ description?: string[] }>("/api/config");
+    return `${siteConfig.description?.length ?? 0} bio line(s)`;
   });
 
   await step("calendar categories", async () => {
-    const cats = await client.request<unknown[]>("/api/calendar/categories");
+    const cats = await site.request<unknown[]>("/api/calendar/categories");
     return `${cats.length} categor(y/ies)`;
   });
 
   await step("timers", async () => {
-    const res = await client.request<{ running: unknown[] } | null>(
+    const res = await site.request<{ running: unknown[] } | null>(
       "/api/calendar/actuals/running",
       { query: { all: "1" } },
     );
     return `${res?.running?.length ?? 0} running`;
   });
+
+  await step("uploads", async () => {
+    const rows = await site.request<unknown[]>("/api/uploads", { query: { limit: 1 } });
+    return rows.length > 0 ? "reachable, has uploads" : "reachable, empty";
+  });
+
+  const truman = trumanClient(config);
+  if (truman) {
+    await step("truman stream", async () => {
+      const stream = await truman.request<{ status: string; watching: unknown[] }>("/api/stream");
+      return `${stream.status}, ${stream.watching.length} watching`;
+    });
+  } else {
+    log("  skip  truman — TRUMAN_OWNER_KEY not set");
+  }
+
+  if (config.listenOwnerKey) {
+    await step("listen room", async () => {
+      const listen = listenClient(config);
+      const studio = await listen.request<{ owner: boolean; configured: boolean }>("/api/studio");
+      if (!studio.configured) return "reachable, but no broadcaster key configured server-side";
+      return studio.owner ? "owner key accepted" : "reachable, but LISTEN_OWNER_KEY was rejected";
+    });
+  } else {
+    log("  skip  listen — LISTEN_OWNER_KEY not set");
+  }
 
   log(failed ? "\nSomething is wrong — see the FAIL lines above." : "\nAll checks passed.");
   return failed ? 1 : 0;

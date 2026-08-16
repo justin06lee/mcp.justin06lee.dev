@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { SiteClient } from "../client.ts";
+import type { ApiClient } from "../client.ts";
 import { fail, guarded, ok } from "./shared.ts";
 
 const CATEGORIES = ["projects", "hobbies", "in-development"] as const;
@@ -43,7 +43,7 @@ function slugify(title: string): string {
     .slice(0, 60);
 }
 
-export function registerItemTools(server: McpServer, client: SiteClient): void {
+export function registerItemTools(server: McpServer, client: ApiClient): void {
   server.registerTool(
     "list_items",
     {

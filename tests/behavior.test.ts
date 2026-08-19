@@ -32,6 +32,7 @@ const ITEM_ROW = {
   notes: "keep",
   sort_order: 3,
   pinned: 1,
+  collection: "agents",
 };
 
 const captured: Captured[] = [];
@@ -145,7 +146,16 @@ test("update_item carries every untouched field into the full-replace PUT", asyn
     notes: "keep",
     sort_order: 3,
     pinned: true,
+    collection: "agents",
   });
+});
+
+test("update_item can clear the collection with an explicit null", async () => {
+  const res = await call("update_item", { id: "otto", collection: null });
+  expect(res.error).toBe(false);
+
+  const put = captured.find((c) => c.method === "PUT");
+  expect((put?.body as { collection: string | null }).collection).toBeNull();
 });
 
 test("update_item with an unknown id fails without sending a PUT", async () => {

@@ -35,6 +35,9 @@ deterministic.
 
 - **`PUT /api/items/:id` is a full replace.** Omitted fields are written as
   null. `update_item` reads the current row and merges; keep it that way.
+  Corollary: when the site grows a new item column (as `collection` did in
+  Aug 2026), it MUST be added to `ItemRow` and the merge body here, or every
+  `update_item` call silently nulls it on the live site.
 - **`GET /api/calendar/actuals/running` returns 204, not `[]`,** when nothing
   is running. The client maps that to `null`.
 - **Auth is cookies everywhere; no site has a header-token path.** Three
@@ -113,4 +116,9 @@ Kept here so the next sweep doesn't re-derive it:
 | coffee | server actions only (+ read-only ICS) | no — needs routes added in that repo |
 | oddjob | server actions only (+ session-gated attachment GET) | no — same |
 | leet | OAuth plumbing only; admin is owner-session actions | no — same |
+| todo | server actions only (17 of them, zero routes; same `ADMIN_KEY` + palette as the main site) | no — same |
 | chrome | static registry, no server state | nothing to cover |
+| articles | content-only repo for the main site's articles | nothing to cover (reached via revalidate + desk upload) |
+
+Last full sweep: 2026-08-18. Since the previous one, the only wrappable
+addition anywhere was the items `collection` column on the main site.

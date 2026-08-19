@@ -32,7 +32,11 @@ export type RequestOptions = {
   /** multipart body — mutually exclusive with `body`. */
   form?: FormData;
   query?: Record<string, string | number | boolean | undefined>;
+  /** Return the response bytes instead of parsing JSON (e.g. file downloads). */
+  raw?: boolean;
 };
+
+export type RawResponse = { bytes: Uint8Array; contentType: string | null };
 
 export interface ApiClient {
   request<T = unknown>(path: string, options?: RequestOptions): Promise<T>;
@@ -94,6 +98,13 @@ abstract class CookieClient implements ApiClient {
 
     if (!res.ok) {
       throw new ApiError(res.status, (await res.text()).slice(0, 500), method, url);
+    }
+
+    if (options.raw) {
+      return {
+        bytes: new Uint8Array(await res.arrayBuffer()),
+        contentType: res.headers.get("content-type"),
+      } as T;
     }
 
     // 204 is a documented success shape — e.g. `GET /api/calendar/actuals/running`

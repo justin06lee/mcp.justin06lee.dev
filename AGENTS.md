@@ -1,8 +1,10 @@
 # agent notes
 
 MCP server wrapping the justin06lee.dev ecosystem's HTTP APIs — the main site
-plus truman (live video) and listen (music room). See `README.md` for setup and
-the tool list; this file is the stuff that bites you when editing.
+plus truman (live video), listen (music room), todo (board + notes), coffee
+(bookings), oddjob (work-order inbox), and leet (practice site). See
+`README.md` for setup and the tool list; this file is the stuff that bites you
+when editing.
 
 ## rules
 
@@ -70,6 +72,24 @@ deterministic.
   camelCase mapped objects.** Don't "fix" one to match the other.
 - **truman's `name` is set at login** (`loginBody` sends `name: "otto"`) — chat
   posts can't carry a different name per message.
+- **todo/coffee/oddjob share the main site's `ADMIN_KEY`** but each runs its
+  own sessions table and cookie (`admin_session` / `coffee_admin_session` /
+  `oddjob_admin_session`), so the server holds one key and four separate
+  `SessionClient`s. leet's `ADMIN_KEY` is its own secret (`LEET_ADMIN_KEY`
+  here) exchanged at `POST /api/auth/key`.
+- **leet key login needs the owner's user row.** Sessions hang off `users`;
+  the row is minted by GitHub OAuth, so until the owner has signed in via
+  GitHub once, `/api/auth/key` 503s no matter how right the key is.
+- **coffee event types are created INACTIVE** unless `active: true` is sent —
+  the API mirrors the admin form's hidden-input parse. The tool description
+  warns; keep the warning.
+- **`PUT /api/availability/weekly` (coffee) and `PUT .../tests` (leet) are
+  full replaces** — like `listen_set_room`, the tools say to read first.
+- **oddjob's attachment route 404s for "no session" too** (deliberately never
+  confirms it exists). `oddjob_get_attachment` probes `GET /api/auth` first so
+  the single-retry session heal has happened before the 404 is trusted.
+- **leet/coffee PATCH routes merge server-side** — unlike the main site's
+  items PUT, the tools do NOT read-modify-write; don't add it.
 
 ## deployment shape
 
@@ -113,12 +133,13 @@ Kept here so the next sweep doesn't re-derive it:
 | hours | none of its own — shares the main site's DB/tables | via the calendar/timer tools |
 | truman | full API (cookie session + separate box bearer key) | owner surface yes; box routes deliberately not |
 | listen | room/studio/presence | room + studio yes; presence heartbeat deliberately not |
-| coffee | server actions only (+ read-only ICS) | no — needs routes added in that repo |
-| oddjob | server actions only (+ session-gated attachment GET) | no — same |
-| leet | OAuth plumbing only; admin is owner-session actions | no — same |
-| todo | server actions only (17 of them, zero routes; same `ADMIN_KEY` + palette as the main site) | no — same |
+| coffee | admin API added Aug 2026 (auth, bookings, event types, availability, settings) | yes — guest booking/cancel deliberately not |
+| oddjob | admin API added Aug 2026 (auth, requests) + attachment GET | yes — public submitRequest deliberately not |
+| leet | key login + owner API added Aug 2026 (articles, problems, tests) | yes — learner SRS surface deliberately not |
+| todo | admin API added Aug 2026 (auth, board, categories, tasks, notes) | yes |
 | chrome | static registry, no server state | nothing to cover |
 | articles | content-only repo for the main site's articles | nothing to cover (reached via revalidate + desk upload) |
 
-Last full sweep: 2026-08-18. Since the previous one, the only wrappable
-addition anywhere was the items `collection` column on the main site.
+Last full sweep: 2026-08-18. The todo/coffee/oddjob/leet admin APIs were added
+on each repo's `feat/admin-api` branch as part of wiring this server to them —
+when one of those sites changes its API, the change starts there.

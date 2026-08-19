@@ -1,5 +1,13 @@
 import { loadConfig } from "./config.ts";
-import { listenClient, siteClient, trumanClient } from "./server.ts";
+import {
+  coffeeClient,
+  leetClient,
+  listenClient,
+  oddjobClient,
+  siteClient,
+  todoClient,
+  trumanClient,
+} from "./server.ts";
 
 /**
  * `--doctor` exists because a stdio MCP server is otherwise invisible: it is
@@ -67,6 +75,35 @@ export async function doctor(): Promise<number> {
     const rows = await site.request<unknown[]>("/api/uploads", { query: { limit: 1 } });
     return rows.length > 0 ? "reachable, has uploads" : "reachable, empty";
   });
+
+  // todo/coffee/oddjob authenticate with the same shared ADMIN_KEY, so a
+  // passing read on each proves that deployment carries the key too.
+  await step("todo board", async () => {
+    const board = await todoClient(config).request<{ categories: unknown[] }>("/api/board");
+    return `${board.categories.length} categor(y/ies)`;
+  });
+
+  await step("coffee event types", async () => {
+    const types = await coffeeClient(config).request<unknown[]>("/api/event-types");
+    return `${types.length} event type(s)`;
+  });
+
+  await step("oddjob inbox", async () => {
+    const inbox = await oddjobClient(config).request<{ total: number }>("/api/requests", {
+      query: { limit: 1 },
+    });
+    return `${inbox.total} request(s)`;
+  });
+
+  const leet = leetClient(config);
+  if (leet) {
+    await step("leet articles", async () => {
+      const articles = await leet.request<unknown[]>("/api/admin/articles");
+      return `${articles.length} article(s)`;
+    });
+  } else {
+    log("  skip  leet — LEET_ADMIN_KEY not set");
+  }
 
   const truman = trumanClient(config);
   if (truman) {

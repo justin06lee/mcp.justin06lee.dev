@@ -127,6 +127,8 @@ MCP_FILE="$MCP_FILE" SERVER_KEY="$SERVER_KEY" BIN_PATH="$BIN_DIR/$BIN_NAME" \
 SITE_URL="$SITE_URL" ADMIN_KEY="$ADMIN_KEY" \
 TRUMAN_URL="${TRUMAN_URL:-}" TRUMAN_OWNER_KEY="${TRUMAN_OWNER_KEY:-}" \
 LISTEN_URL="${LISTEN_URL:-}" LISTEN_OWNER_KEY="${LISTEN_OWNER_KEY:-}" \
+TODO_URL="${TODO_URL:-}" COFFEE_URL="${COFFEE_URL:-}" ODDJOB_URL="${ODDJOB_URL:-}" \
+LEET_URL="${LEET_URL:-}" LEET_ADMIN_KEY="${LEET_ADMIN_KEY:-}" \
 REQUEST_TIMEOUT_MS="${REQUEST_TIMEOUT_MS:-}" python3 - <<'PY'
 import json, os, tempfile
 
@@ -143,7 +145,11 @@ servers = cfg.setdefault("mcpServers", {})
 env = servers.get(os.environ["SERVER_KEY"], {}).get("env", {})
 env["SITE_URL"] = os.environ["SITE_URL"]
 env["ADMIN_KEY"] = os.environ["ADMIN_KEY"]
-for key in ("TRUMAN_URL", "TRUMAN_OWNER_KEY", "LISTEN_URL", "LISTEN_OWNER_KEY", "REQUEST_TIMEOUT_MS"):
+for key in (
+    "TRUMAN_URL", "TRUMAN_OWNER_KEY", "LISTEN_URL", "LISTEN_OWNER_KEY",
+    "TODO_URL", "COFFEE_URL", "ODDJOB_URL", "LEET_URL", "LEET_ADMIN_KEY",
+    "REQUEST_TIMEOUT_MS",
+):
     if os.environ.get(key):
         env[key] = os.environ[key]
 

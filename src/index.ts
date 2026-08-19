@@ -20,6 +20,12 @@ Environment:
   TRUMAN_OWNER_KEY     optional; enables the truman_* tools
   LISTEN_URL           listen deployment (default https://listen.justin06lee.dev)
   LISTEN_OWNER_KEY     optional; enables writes via listen_set_room
+  TODO_URL             todo deployment (default https://todo.justin06lee.dev)
+  COFFEE_URL           coffee deployment (default https://coffee.justin06lee.dev)
+  ODDJOB_URL           oddjob deployment (default https://oddjob.justin06lee.dev)
+                       (todo/coffee/oddjob authenticate with the shared ADMIN_KEY)
+  LEET_URL             leet deployment (default https://leet.justin06lee.dev)
+  LEET_ADMIN_KEY       optional; leet's own admin key, enables the leet_* tools
   REQUEST_TIMEOUT_MS   per-request timeout (default 15000)
 `;
 

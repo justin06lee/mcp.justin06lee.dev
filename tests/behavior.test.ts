@@ -69,25 +69,55 @@ const site = Bun.serve({
       });
     }
 
-    // Login — the main site and truman share the path; truman's body has `name`.
+    // Login — the main site, truman, and the shared-key sites all exchange a
+    // password for a cookie. truman's body has `name`; the password-only shape
+    // gets every shared-key cookie at once so each client finds its own.
     if (path === "/api/auth" && req.method === "POST") {
       const body = (await readBody()) as { name?: string } | null;
-      const cookieName = body?.name !== undefined ? "truman_session" : "admin_session";
+      auth.loginCount += 1;
+      const token = `tok${auth.loginCount}`;
+      auth.valid.add(token);
+      const headers = new Headers({ "content-type": "application/json" });
+      const names =
+        body?.name !== undefined
+          ? ["truman_session"]
+          : ["admin_session", "coffee_admin_session", "oddjob_admin_session"];
+      for (const name of names) headers.append("set-cookie", `${name}=${token}; Path=/; HttpOnly`);
+      return new Response("{}", { headers });
+    }
+
+    // leet's key login lives on its own path and mints the OAuth cookie.
+    if (path === "/api/auth/key" && req.method === "POST") {
       auth.loginCount += 1;
       const token = `tok${auth.loginCount}`;
       auth.valid.add(token);
       return new Response("{}", {
-        headers: { "set-cookie": `${cookieName}=${token}; Path=/; HttpOnly` },
+        headers: { "set-cookie": `leet_session=${token}; Path=/; HttpOnly` },
       });
     }
 
-    const token = /(?:admin|truman)_session=([^;]+)/.exec(cookies)?.[1];
+    const token =
+      /(?:^|;\s*)(?:coffee_admin_session|oddjob_admin_session|admin_session|truman_session|leet_session)=([^;]+)/.exec(
+        cookies,
+      )?.[1];
     if (!token || !auth.valid.has(token)) return new Response("unauthorized", { status: 401 });
 
     captured.push({ method: req.method, path, body: await readBody() });
 
     if (path === "/api/items" && req.method === "GET") return Response.json([ITEM_ROW]);
     if (path === "/api/calendar/actuals/running") return new Response(null, { status: 204 });
+    if (path === "/api/board") return Response.json({ categories: [] });
+    if (path === "/api/event-types" && req.method === "GET") return Response.json([]);
+    if (path === "/api/requests" && req.method === "GET") {
+      return Response.json({ requests: [], total: 0, limit: 15, offset: 0 });
+    }
+    if (path === "/api/admin/articles" && req.method === "GET") return Response.json([]);
+    if (path === "/admin/attachment/att-txt") {
+      return new Response("hello notes", { headers: { "content-type": "text/plain" } });
+    }
+    if (path === "/admin/attachment/att-pdf") {
+      return new Response("%PDF-1.4", { headers: { "content-type": "application/pdf" } });
+    }
     return Response.json({});
   },
 });
@@ -95,13 +125,19 @@ const site = Bun.serve({
 let client: Client;
 
 beforeAll(async () => {
+  const base = `http://localhost:${site.port}`;
   const server = createServer({
-    siteUrl: `http://localhost:${site.port}`,
+    siteUrl: base,
     adminKey: "test-key",
-    trumanUrl: `http://localhost:${site.port}`,
+    trumanUrl: base,
     trumanOwnerKey: "truman-key",
-    listenUrl: `http://localhost:${site.port}`,
+    listenUrl: base,
     listenOwnerKey: LISTEN_KEY,
+    todoUrl: base,
+    coffeeUrl: base,
+    oddjobUrl: base,
+    leetUrl: base,
+    leetAdminKey: "leet-key",
     requestTimeoutMs: 5_000,
   });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -282,13 +318,19 @@ test("upload_image demands exactly one source and rejects oversized files", asyn
 });
 
 test("a keyless truman client fails with the env var named", async () => {
+  const base = `http://localhost:${site.port}`;
   const server = createServer({
-    siteUrl: `http://localhost:${site.port}`,
+    siteUrl: base,
     adminKey: "test-key",
-    trumanUrl: `http://localhost:${site.port}`,
+    trumanUrl: base,
     trumanOwnerKey: null,
-    listenUrl: `http://localhost:${site.port}`,
+    listenUrl: base,
     listenOwnerKey: null,
+    todoUrl: base,
+    coffeeUrl: base,
+    oddjobUrl: base,
+    leetUrl: base,
+    leetAdminKey: null,
     requestTimeoutMs: 5_000,
   });
   const [ct, st] = InMemoryTransport.createLinkedPair();
@@ -309,5 +351,53 @@ test("a keyless truman client fails with the env var named", async () => {
   expect(room.isError).toBe(true);
   expect(room.content[0]?.text).toContain("LISTEN_OWNER_KEY");
 
+  const articles = (await bare.callTool({ name: "leet_list_articles", arguments: {} })) as {
+    isError?: boolean;
+    content: { text: string }[];
+  };
+  expect(articles.isError).toBe(true);
+  expect(articles.content[0]?.text).toContain("LEET_ADMIN_KEY");
+
   await bare.close();
+});
+
+test("todo, coffee, oddjob, and leet each authenticate on their own cookie", async () => {
+  for (const [name, args] of [
+    ["todo_get_board", {}],
+    ["coffee_list_event_types", {}],
+    ["oddjob_list_requests", {}],
+    ["leet_list_articles", {}],
+  ] as const) {
+    const res = await call(name, args);
+    expect(res.error).toBe(false);
+  }
+});
+
+test("oddjob_update_request refuses an empty patch locally", async () => {
+  const res = await call("oddjob_update_request", { id: "OJ-0001" });
+  expect(res.error).toBe(true);
+  expect(captured.length).toBe(0);
+});
+
+test("todo_create_category rejects a colour outside the palette locally", async () => {
+  const res = await call("todo_create_category", { name: "reading", color: "#ff0000" });
+  expect(res.error).toBe(true);
+  expect(captured.length).toBe(0);
+});
+
+test("coffee_list_bookings rejects a range beyond the 400-day cap locally", async () => {
+  const res = await call("coffee_list_bookings", { from: "2024-01-01", to: "2026-01-01" });
+  expect(res.error).toBe(true);
+  expect(res.text).toContain("400");
+  expect(captured.length).toBe(0);
+});
+
+test("oddjob_get_attachment returns text inline and refuses binary without save_path", async () => {
+  const text = await call("oddjob_get_attachment", { id: "att-txt" });
+  expect(text.error).toBe(false);
+  expect(text.text).toContain("hello notes");
+
+  const pdf = await call("oddjob_get_attachment", { id: "att-pdf" });
+  expect(pdf.error).toBe(true);
+  expect(pdf.text).toContain("save_path");
 });

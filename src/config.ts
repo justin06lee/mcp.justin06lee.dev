@@ -15,6 +15,13 @@ export type Config = {
   trumanOwnerKey: string | null;
   listenUrl: string;
   listenOwnerKey: string | null;
+  /** todo/coffee/oddjob share the main site's ADMIN_KEY; only their URLs vary. */
+  todoUrl: string;
+  coffeeUrl: string;
+  oddjobUrl: string;
+  leetUrl: string;
+  /** leet has its own ADMIN_KEY (not the shared one); optional like the truman key. */
+  leetAdminKey: string | null;
   requestTimeoutMs: number;
 };
 
@@ -36,6 +43,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const siteUrl = parseUrl("SITE_URL", env.SITE_URL ?? "https://justin06lee.dev");
   const trumanUrl = parseUrl("TRUMAN_URL", env.TRUMAN_URL ?? "https://truman.justin06lee.dev");
   const listenUrl = parseUrl("LISTEN_URL", env.LISTEN_URL ?? "https://listen.justin06lee.dev");
+  const todoUrl = parseUrl("TODO_URL", env.TODO_URL ?? "https://todo.justin06lee.dev");
+  const coffeeUrl = parseUrl("COFFEE_URL", env.COFFEE_URL ?? "https://coffee.justin06lee.dev");
+  const oddjobUrl = parseUrl("ODDJOB_URL", env.ODDJOB_URL ?? "https://oddjob.justin06lee.dev");
+  const leetUrl = parseUrl("LEET_URL", env.LEET_URL ?? "https://leet.justin06lee.dev");
 
   const adminKey = env.ADMIN_KEY ?? "";
   if (!adminKey) {
@@ -57,6 +68,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     trumanOwnerKey: env.TRUMAN_OWNER_KEY || null,
     listenUrl,
     listenOwnerKey: env.LISTEN_OWNER_KEY || null,
+    todoUrl,
+    coffeeUrl,
+    oddjobUrl,
+    leetUrl,
+    leetAdminKey: env.LEET_ADMIN_KEY || null,
     requestTimeoutMs,
   };
 }

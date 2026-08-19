@@ -11,10 +11,12 @@
 
 ---
 
-39 tools over the ecosystem's existing HTTP APIs: the main site's portfolio
-items, homepage bio and socials, calendar plans, categories, time tracking,
-image uploads and article cache — plus the truman.justin06lee.dev live-video
-room and the listen.justin06lee.dev synced music room.
+81 tools over the ecosystem's HTTP APIs: the main site's portfolio items,
+homepage bio and socials, calendar plans, categories, time tracking, image
+uploads and article cache — plus the truman.justin06lee.dev live-video room,
+the listen.justin06lee.dev synced music room, the todo.justin06lee.dev board
+and notes, the coffee.justin06lee.dev booking page, the oddjob.justin06lee.dev
+work-order inbox, and the leet.justin06lee.dev practice site.
 
 ## why it wraps HTTP and not the database
 
@@ -72,8 +74,10 @@ justin06lee-mcp --doctor
 ```
 
 Hits the live sites and reports auth, items, config, categories, timers,
-uploads, the truman stream, and the listen room. Apps whose key is not set are
-skipped, not failed. Non-zero exit on failure, so it works in a health check.
+uploads, the todo board, the coffee event types, the oddjob inbox, the leet
+articles, the truman stream, and the listen room. Apps whose key is not set
+are skipped, not failed. Non-zero exit on failure, so it works in a health
+check.
 
 ### other agents
 
@@ -99,6 +103,11 @@ a systemd unit, or a container.
 | `TRUMAN_OWNER_KEY` | *(optional)* | Enables the `truman_*` tools. Without it they register but fail with a clear message. |
 | `LISTEN_URL` | `https://listen.justin06lee.dev` | The synced music room. |
 | `LISTEN_OWNER_KEY` | *(optional)* | Enables `listen_set_room`; reading the room is public. |
+| `TODO_URL` | `https://todo.justin06lee.dev` | The todo board + notes. Authenticates with the shared `ADMIN_KEY`. |
+| `COFFEE_URL` | `https://coffee.justin06lee.dev` | The booking page. Shared `ADMIN_KEY`. |
+| `ODDJOB_URL` | `https://oddjob.justin06lee.dev` | The work-order inbox. Shared `ADMIN_KEY`. |
+| `LEET_URL` | `https://leet.justin06lee.dev` | The practice site. |
+| `LEET_ADMIN_KEY` | *(optional)* | leet's own admin key (not the shared one). Enables the `leet_*` tools. |
 | `REQUEST_TIMEOUT_MS` | `15000` | Raise if a site cold-starts slowly. |
 
 ## deploying to the tenet box
@@ -128,6 +137,10 @@ the working one would break the local agent.
 | Articles | `revalidate_articles` `upload_article_image` |
 | truman | `truman_stream_status` `truman_set_live` `truman_read_chat` `truman_post_chat` `truman_clear_chat` `truman_revoke_sessions` `truman_delete_episode` |
 | listen | `listen_room_status` `listen_set_room` |
+| todo | `todo_get_board` `todo_create_category` `todo_update_category` `todo_delete_category` `todo_clear_done_tasks` `todo_create_task` `todo_update_task` `todo_delete_task` `todo_list_notes` `todo_read_note` `todo_create_note` `todo_update_note` `todo_delete_note` |
+| coffee | `coffee_list_bookings` `coffee_get_booking` `coffee_cancel_booking` `coffee_list_event_types` `coffee_create_event_type` `coffee_update_event_type` `coffee_delete_event_type` `coffee_get_availability` `coffee_set_weekly_availability` `coffee_add_date_override` `coffee_remove_date_override` `coffee_get_settings` `coffee_update_settings` |
+| oddjob | `oddjob_list_requests` `oddjob_get_request` `oddjob_update_request` `oddjob_delete_request` `oddjob_get_attachment` |
+| leet | `leet_list_articles` `leet_get_article` `leet_create_article` `leet_update_article` `leet_delete_article` `leet_list_problems` `leet_get_problem` `leet_create_problem` `leet_update_problem` `leet_delete_problem` `leet_set_problem_tests` |
 
 Places where a tool is friendlier than the raw endpoint:
 
@@ -169,7 +182,11 @@ src/
     ├── uploads.ts
     ├── articles.ts
     ├── truman.ts
-    └── listen.ts
+    ├── listen.ts
+    ├── todo.ts
+    ├── coffee.ts
+    ├── oddjob.ts
+    └── leet.ts
 scripts/
 ├── smoke.ts          # boots the built server over stdio, asserts the manifest
 └── deploy.sh         # cross-compile → scp → remote doctor → restart Otto
@@ -189,19 +206,17 @@ and has no listening port to secure.
 - **The article CMS** (create/save/delete/visibility) — lives behind `"use
   server"` actions on the main site with no HTTP routes. Only the two
   HTTP-reachable pieces (revalidate, desk image upload) are wrapped.
-- **coffee.justin06lee.dev** — event types, availability, and bookings live
-  behind `"use server"` actions with no HTTP routes (one read-only ICS route
-  excepted), so nothing external can reach them. Adding routes there is a
-  prerequisite.
-- **oddjob.justin06lee.dev** — same shape: the work-order inbox mutates only
-  through server actions; the single HTTP route is an attachment download
-  behind the same session those actions mint.
-- **leet.justin06lee.dev** — admin mutations are owner-session server actions;
-  its `ADMIN_KEY` env var is declared but unwired in the app itself.
-- **todo.justin06lee.dev** — the whole mutable surface is server actions
-  (board, notes, visibility); it has zero HTTP route handlers, so there is
-  nothing external to wrap until routes are added in that repo.
 - **chrome.justin06lee.dev** — a static component registry; there is no
   server-side state to change.
 - **truman's box routes** (stream reports, episode filing) — those belong to
   the camera machine's bearer key; this server never impersonates the box.
+- **The public guest surfaces** of coffee (booking a slot, cancelling by
+  token) and oddjob (submitting a work order) — those belong to visitors, and
+  the admin tools above cover everything the owner would do about them.
+- **leet's learner surface** (SRS reviews, sessions) — that data is the
+  owner's own practice history; the `leet_*` tools cover the authoring side.
+
+The admin APIs the `todo_*`, `coffee_*`, `oddjob_*`, and `leet_*` tools call
+were added to those repos in Aug 2026 (each repo's `feat/admin-api`); before
+that their mutations lived behind server actions no external caller could
+reach.

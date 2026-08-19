@@ -21,6 +21,7 @@ type ItemRow = {
   notes: string | null;
   sort_order: number;
   pinned: number;
+  collection: string | null;
 };
 
 function decode(row: ItemRow) {
@@ -81,6 +82,14 @@ export function registerItemTools(server: McpServer, client: ApiClient): void {
         notes: z.string().optional(),
         sort_order: z.number().int().optional().describe("Lower sorts first within the category."),
         pinned: z.boolean().optional().describe("Pinned items sort above everything else."),
+        collection: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            "Groups the item into a titled salon section on the gallery page. " +
+              "Omit for the default (ungrouped) wall.",
+          ),
       },
     },
     guarded(async (args) => {
@@ -117,6 +126,12 @@ export function registerItemTools(server: McpServer, client: ApiClient): void {
         notes: z.string().nullable().optional(),
         sort_order: z.number().int().optional(),
         pinned: z.boolean().optional(),
+        collection: z
+          .string()
+          .min(1)
+          .nullable()
+          .optional()
+          .describe("Gallery salon section. null moves the item back to the default wall."),
       },
     },
     guarded(async ({ id, ...patch }) => {
@@ -144,6 +159,7 @@ export function registerItemTools(server: McpServer, client: ApiClient): void {
           notes: merged.notes,
           sort_order: merged.sort_order,
           pinned: merged.pinned,
+          collection: merged.collection,
         },
       });
       return ok(merged, `Updated "${merged.title}".`);

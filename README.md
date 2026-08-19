@@ -198,6 +198,9 @@ and has no listening port to secure.
   behind the same session those actions mint.
 - **leet.justin06lee.dev** — admin mutations are owner-session server actions;
   its `ADMIN_KEY` env var is declared but unwired in the app itself.
+- **todo.justin06lee.dev** — the whole mutable surface is server actions
+  (board, notes, visibility); it has zero HTTP route handlers, so there is
+  nothing external to wrap until routes are added in that repo.
 - **chrome.justin06lee.dev** — a static component registry; there is no
   server-side state to change.
 - **truman's box routes** (stream reports, episode filing) — those belong to
